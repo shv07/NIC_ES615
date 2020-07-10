@@ -1,0 +1,104 @@
+classdef SliderGagueGUI < matlab.apps.AppBase
+
+    % Properties that correspond to app components
+    properties (Access = public)
+        TrackSliderUIFigure   matlab.ui.Figure
+        Gauge                 matlab.ui.control.SemicircularGauge
+        Slider                matlab.ui.control.Slider
+        windspeedSliderLabel  matlab.ui.control.Label
+        windspeedSlider       matlab.ui.control.Slider
+        tempratureLabel       matlab.ui.control.Label
+        FanSpeedLabel         matlab.ui.control.Label
+    end
+
+    % Callbacks that handle component events
+    methods (Access = private)
+
+        % Value changing function: Slider, windspeedSlider
+        function SliderValueChanging(app, event)
+            % Get latest slider value
+            changingValue = event.Value; 
+            Model= readfis('FuzzyLogic')
+            
+            % Set gauge needle to latest slider value
+            app.Gauge.Value = evalfis(changingValue,Model); 
+            % 200+changingValue*8
+        end
+    end
+
+    % Component initialization
+    methods (Access = private)
+
+        % Create UIFigure and components
+        function createComponents(app)
+
+            % Create TrackSliderUIFigure and hide until all components are created
+            app.TrackSliderUIFigure = uifigure('Visible', 'off');
+            app.TrackSliderUIFigure.Position = [100 100 388 344];
+            app.TrackSliderUIFigure.Name = 'Track Slider';
+
+            % Create Gauge
+            app.Gauge = uigauge(app.TrackSliderUIFigure, 'semicircular');
+            app.Gauge.Limits = [200 1000];
+            app.Gauge.Position = [100 185 190 103];
+            app.Gauge.Value = 300;
+
+            % Create Slider
+            app.Slider = uislider(app.TrackSliderUIFigure);
+            app.Slider.Limits = [3 35];
+            app.Slider.ValueChangingFcn = createCallbackFcn(app, @SliderValueChanging, true);
+            app.Slider.Position = [120 142 150 3];
+            app.Slider.Value = 20;
+
+            % Create windspeedSliderLabel
+            app.windspeedSliderLabel = uilabel(app.TrackSliderUIFigure);
+            app.windspeedSliderLabel.HorizontalAlignment = 'right';
+            app.windspeedSliderLabel.Position = [34 66 63 22];
+            app.windspeedSliderLabel.Text = 'windspeed';
+
+            % Create windspeedSlider
+            app.windspeedSlider = uislider(app.TrackSliderUIFigure);
+            app.windspeedSlider.ValueChangingFcn = createCallbackFcn(app, @SliderValueChanging, true);
+            app.windspeedSlider.Position = [118 75 150 3];
+            app.windspeedSlider.Value = 20;
+
+            % Create tempratureLabel
+            app.tempratureLabel = uilabel(app.TrackSliderUIFigure);
+            app.tempratureLabel.Position = [37 123 64 22];
+            app.tempratureLabel.Text = 'temprature';
+
+            % Create FanSpeedLabel
+            app.FanSpeedLabel = uilabel(app.TrackSliderUIFigure);
+            app.FanSpeedLabel.Position = [37 225 61 22];
+            app.FanSpeedLabel.Text = 'FanSpeed';
+
+            % Show the figure after all components are created
+            app.TrackSliderUIFigure.Visible = 'on';
+        end
+    end
+
+    % App creation and deletion
+    methods (Access = public)
+
+        % Construct app
+        function app = SliderGagueGUI
+
+            % Create UIFigure and components
+            createComponents(app)
+
+            % Register the app with App Designer
+            registerApp(app, app.TrackSliderUIFigure)
+
+            if nargout == 0
+                clear app
+            end
+        end
+
+        % Code that executes before app deletion
+        function delete(app)
+
+            % Delete UIFigure when app is deleted
+            delete(app.TrackSliderUIFigure)
+        end
+    end
+end

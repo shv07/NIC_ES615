@@ -2,6 +2,7 @@
 # coding: utf-8
 
 # # Portfolio Optimization using MOPSO
+# # Shivji Bhagat - 16110149
 
 # ## Problem Statement
 # Assume that you are a financial consultant and you have to create a portfolio for your client. You have two objectives: 

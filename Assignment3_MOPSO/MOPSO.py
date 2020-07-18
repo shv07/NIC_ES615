@@ -6,7 +6,7 @@
 
 #MOPSO
 import numpy as np
-global GLOBAL_BEST
+GLOBAL_BEST=None
 
 
 # In[10]:
@@ -26,7 +26,7 @@ def crowdingDistSorting(children, population):
     
     costValArray = [[child.best.cost1, child.best.cost2] for child in population]
 
-    Smax, Tmax = np.max(costValArray, axis = 0)  #surfaceArea, TotalArea
+    Smax, Tmax = np.max(costValArray, axis = 0)  
     Smin, Tmin = np.min(costValArray, axis = 0)
 
     tmpCrowd = []
@@ -75,7 +75,7 @@ def atLeast1dominate(front, x):
         True/ False
     """
     for c1, c2 in front:
-        if c1>x[0] and c2<x[1]:
+        if c1>=x[0] and c2<=x[1]:
             return True
     return False
 def findFront(idx, paretoFronts, costs):
@@ -112,7 +112,7 @@ def nonDominatedSorting(population, convert2objective):
     npop = len(population)
     
     
-    populationSorted = np.array(sorted(population, key = lambda x:x.best.cost1))
+    populationSorted = np.array(sorted(population, key = lambda x:x.best.cost2))
     costs = convert2objective(populationSorted)
     paretoFronts = {}
     
@@ -151,33 +151,22 @@ def updatePopulation(population, paretoFronts, npop):
             newPop.append(population[x])
             count+=1
     return np.array(newPop)
-def plotParetoFronts(paretoFronts, population, convert2objective):
-    """
-    Plots the pareto fronts from the given pareto front and population data
-    """
-    costs = convert2objective(population)
-    plt.scatter(costs[:,0], costs[:,1])
-    for front in paretoFronts:
-        cost = np.array([costs[i] for i in paretoFronts[front]])
-        S = cost[:,0]
-        T = cost[:,1]
-        plt.plot(S,T)
-        #plt.show()
-    plt.xlabel("Lateral Surface Area")
-    plt.ylabel("Total Surface Area")
-    plt.title("Pareto Fronts")
 
 
 # In[12]:
 
-
+class Best:
+    def __init__(self):
+        self.position = None
+        self.cost1 = None
+        self.cost2 = None
 class particle:
     def __init__(self):
         self.position = None
         self.velocity = None
         self.cost1 = None
         self.cost2 = None
-        self.best = None
+        self.best = Best()
         
 
 
@@ -186,11 +175,11 @@ class particle:
 
 def initialisePop(npop, cost1, cost2, nvar, varMax, varMin):
     global  GLOBAL_BEST
-    GLOBAL_BEST = particle()
+    GLOBAL_BEST = Best()
     GLOBAL_BEST.cost1 = -float("inf")
     GLOBAL_BEST.cost2 = float("inf")
     population = []
-    for i in range(npop):
+    for i in range(npop):        
         x = particle()
         x.position = np.around(np.random.uniform(low=varMin, high = varMax, size = nvar), 4)
         x.velocity = np.zeros(nvar)
@@ -199,10 +188,11 @@ def initialisePop(npop, cost1, cost2, nvar, varMax, varMin):
         x.best.position = x.position
         x.best.cost1 = x.cost1
         x.best.cost2 = x.cost2
-        if x.best.cost1 > GLOBAL_BEST.cost1 and x.best.cost2 < GLOBAL_BEST.cost2:    
-                GLOBAL_BEST.postion = x.best.position
-                GLOBAL_BEST.cost1 = x.best.cost1
-                GLOBAL_BEST.cost2 = x.best.cost2
+        if x.best.cost1 >= GLOBAL_BEST.cost1 and x.best.cost2 <= GLOBAL_BEST.cost2:
+            
+            GLOBAL_BEST.position = x.best.position
+            GLOBAL_BEST.cost1 = x.best.cost1
+            GLOBAL_BEST.cost2 = x.best.cost2
         population.append(x)
         del x
     return population
@@ -221,17 +211,24 @@ def mopsoOptimizer(cost1, cost2, applyConstraint,normalize, npop = 50, nvar = 2,
     #initialization
     population = initialisePop(npop, cost1, cost2, nvar, varMax, varMin)
     paretoFronts, population = nonDominatedSorting(population, convert2objective)
-          
+    
+    #apply constraints to golbal best
+    GLOBAL_BEST.position = applyConstraint(GLOBAL_BEST.position)
+    GLOBAL_BEST.position = normalize(GLOBAL_BEST.position)
+    GLOBAL_BEST.cost1 = cost1(GLOBAL_BEST.position)
+    GLOBAL_BEST.cost2 = cost2(GLOBAL_BEST.position)
+    
     #crowd sorting of initial pop
-    for front in paretoFronts:
+    for front in paretoFronts:          
             if len(paretoFronts[front])>1:
                 paretoFronts[front] = crowdingDistSorting(paretoFronts[front], population)
     rank = updateRank(paretoFronts)
+    #sort the population according to the pareto front
     population = updatePopulation(population,paretoFronts, npop)
     
     for _ in range(niter):
         for i in range(npop):
-            population[i].velocity = w*population[i].velocity+c1*np.random.rand(nvar)*(population[i].best.position -population[i].position)+c2*np.random.rand(nvar)*(GLOBAL_BEST.position - population[i].position)
+            population[i].velocity = w*population[i].velocity+c1*np.random.rand()*(population[i].best.position -population[i].position)+c2*np.random.rand()*(GLOBAL_BEST.position - population[i].position)
             
             #velocity limits
             population[i].velocity = np.maximum(population[i].velocity, minVelocity)
@@ -254,14 +251,14 @@ def mopsoOptimizer(cost1, cost2, applyConstraint,normalize, npop = 50, nvar = 2,
             population[i].cost2 =cost2(population[i].position)
             
             #update personal best and global best
-            if population[i].cost1 > population[i].best.cost1 and population[i].cost2 < population[i].best.cost2:
+            if population[i].cost1 >= population[i].best.cost1 and population[i].cost2 <= population[i].best.cost2:
                 
                 population[i].best.position = population[i].position
                 population[i].best.cost1 = population[i].cost1
                 population[i].best.cost2 = population[i].cost2
                              
                 
-            if population[i].best.cost1 > GLOBAL_BEST.cost1 and  population[i].best.cost2 < GLOBAL_BEST.cost2:    
+            if population[i].best.cost1 >= GLOBAL_BEST.cost1 and  population[i].best.cost2 <= GLOBAL_BEST.cost2:    
                 GLOBAL_BEST.position = population[i].best.position
                 GLOBAL_BEST.cost1 = population[i].best.cost1
                 GLOBAL_BEST.cost2 = population[i].best.cost2
@@ -284,7 +281,7 @@ def mopsoOptimizer(cost1, cost2, applyConstraint,normalize, npop = 50, nvar = 2,
         #store the current pareto fronts
         pareto_cost = {}
         for front in paretoFronts:
-            pareto_cost[front] = [[population[f].best.cost1, population[f].best.cost2] for f in paretoFronts[front]]
+            pareto_cost[front] = [[population[f].cost1, population[f].cost2] for f in paretoFronts[front]]
         pareto_list.append(pareto_cost)
     return (population, pareto_list, GLOBAL_BEST)
 
